@@ -87,10 +87,13 @@ int main()
                 if (gameOver) {
                     limpiarConsola();
                     printtable(col, fil, table);
-                    cout << "╔══════════════════════════════╗" << endl;
-                    cout << "║         GAME  OVER           ║" << endl;
-                    cout << "║  Puntuacion: " << score         << endl;
-                    cout << "╚══════════════════════════════╝" << endl;
+                    cout << "================================" << endl;
+                    cout << "          GAME  OVER            " << endl;
+                    cout << "   Puntuacion: " << score         << endl;
+                    cout << "================================" << endl;
+                    cout << "Presiona ENTER para continuar..." << endl;
+                    cin.ignore(100, '\n');
+                    cin.get();
                 }
 
                 for (unsigned int i = 0; i < col; i++)
