@@ -11,7 +11,8 @@ bool valido(unsigned int valor);    //valdiar dimemsiones tabla
 char updtable();      //actuaizar la tabla
 
 
-void move(unsigned int &Xc, unsigned int &Yc, char** table, char &state, unsigned int &rot,int typ,unsigned int col,unsigned int fil);
+//-------------- Generacion de fichas------------------------
+bool move(unsigned int &Xc, unsigned int &Yc, char** table, char &state, unsigned int &rot,int typ,unsigned int col,unsigned int fil);
 void generateform(unsigned int col,unsigned int fil,char**table,unsigned int &x,unsigned int &y);        // generar las fichas
 void renderI(unsigned int &Xc, unsigned int &Yc, char**table,unsigned int &rot);        //actualiza el estado de la ficha I
 void render2x2(unsigned int &Xc, unsigned int &Yc, char**table);        //actualiza el estado de la ficha
@@ -22,6 +23,12 @@ void renderZ(unsigned int &Xc, unsigned int &Yc, char** table, unsigned int &rot
 void renderZ2(unsigned int &Xc, unsigned int &Yc, char** table, unsigned int &rot); //dinuja a Z2 o Z invertida
 void renderGeneral(unsigned int Xc, unsigned int Yc, char** table, unsigned int rot, int type);  //para esoger que tipo de ficha vamos a renderizar
 int obtenerTipoAleatorio();
+
+
+//------------Colisiones--------------
+bool colision(unsigned int Xc, unsigned int Yc, unsigned int rot,char** table, int type,unsigned int col,unsigned int fil);
+bool colisionI(unsigned int Xc, unsigned int Yc, unsigned int rot,char** table,unsigned int col,unsigned int fil);
+
 
 
 
@@ -80,7 +87,7 @@ int main()
                         printtable(col,fil,table);
                         generateform(col,fil,table,X,Y);
                         c++;
-                        if(c>0){playing=false;}
+                        if(c>2){playing=false;}
 
                     }
 
@@ -215,26 +222,26 @@ char updtable(){
 
 // generar las fichas
 void generateform(unsigned int col,unsigned int fil,char**table,unsigned int &x,unsigned int &y){
-    int form=obtenerTipoAleatorio();
+    int form=0;//obtenerTipoAleatorio();
     char state;
     unsigned int rot=0;
     unsigned int mid=(fil/2)-1;
     x=1;
     y=mid;
-
     int c=0;
+    bool living=true;
     switch (form) {
     case 0:
         table[x][mid]=1;
         table[x-1][y]^=1;        //al inicio las coordenadas de la ficha es la mitad
         table[x+1][y]^=1;
-        while(c<16){
+        while(living){
 
             printtable(col,fil,table);
             state=updtable();
-            move(x,y,table,state,rot,form,col,fil);
+            living=move(x,y,table,state,rot,form,col,fil);
             cout<<"saliendo"<<endl;
-            c++;
+
         }break;
     case 1:
         table[x][mid]=1;
@@ -332,6 +339,7 @@ void renderI(unsigned int &Xc, unsigned int &Yc, char**table,unsigned int &rot){
 
     switch(rot % 2) {
     case 0: // 0° I normal parada
+
         table[Xc-1][Yc] ^= 1;
         table[Xc+1][Yc] ^= 1;
         break;
@@ -481,34 +489,41 @@ void renderZ2(unsigned int &Xc, unsigned int &Yc, char** table, unsigned int &ro
     }
 }
 
-void move(unsigned int &Xc, unsigned int &Yc, char** table, char &state, unsigned int &rot,int type,unsigned int col,unsigned int fil){
+bool move(unsigned int &Xc, unsigned int &Yc, char** table, char &state, unsigned int &rot,int type,unsigned int col,unsigned int fil){
     // Dibujo inicial
     // 1. BORRAR la pieza en su posición y rotación actual
     renderGeneral(Xc, Yc, table, rot, type);
+    bool bloq=true;
+    //validamos si las coordenadas a futuro
+    unsigned int nextX = Xc;
+    unsigned int nextY = Yc;
+    unsigned int nextRot = rot;
 
-    // 2. ACTUALIZAR
     switch(state) {
-    case 'a': // Izquierda
-        if(Yc>0){
-            Yc -= 1;
+    case 'a': nextY--; break;
+    case 'd': nextY++; break;
+    case 's': nextX++; break;
+    case 'w': nextRot = (nextRot + 1) % 4; break;
+    }
+
+    //si las coordenadas a futuro son validas es decir no colisionan, se actualiza Xc,Yc ,rot
+    if (!colision(nextX, nextY, nextRot,table,type, col, fil)) {
+        Xc = nextX;
+        Yc = nextY;
+        rot = nextRot;
+
+    }else {
+        // si la ficha colisiona despues de intentar bajar, entonces ya no se puede mover mas
+        if (state == 's') {
+            bloq = false;
         }
-        break;
-    case 'd': // Derecha
-        if(Yc+1>fil-1)break;
-         Yc += 1;
-        break;
-    case 's': // Abajo
-        if(Xc+1>col-1)break;
-         Xc += 1;
-        break;
-    case 'w': // Rotar
-        rot = (rot + 1) % 4;
-        break;
     }
 
     // 3. Dibuja la pieza en la nueva posición o rotación
     renderGeneral(Xc, Yc, table, rot, type);
+    return bloq;
 }
+
 
 void renderGeneral(unsigned int Xc, unsigned int Yc, char** table, unsigned int rot, int type) {
     switch(type) {
@@ -528,5 +543,62 @@ int obtenerTipoAleatorio() {
     // La fórmula es: rand() % (MAX - MIN + 1) + MIN
     return rand() % 7;
 }
+
+
+bool colision(unsigned int Xc, unsigned int Yc, unsigned int rot,char** table, int type,unsigned int col,unsigned int fil){
+
+    switch (type) {
+    case 0:     //colision para I
+        return colisionI(Xc,Yc,rot,table,col,fil);
+
+    default:
+        break;
+    }
+    return true;
+}
+
+bool colisionI(unsigned int Xc, unsigned int Yc, unsigned int rot,char** table,unsigned int col,unsigned int fil){
+    switch (rot){
+    case 0:
+        if(Xc+1<col&&Yc>=0&&Yc<fil){    //no hay colision con los bordes
+           if(table[Xc+1][Yc]==1){
+                return true;        //hay colision abajo con otra ficha
+           }else{return false;}
+        }
+        return true;                                    //si hay colision con los bordes
+    case 1:
+        if(Yc>0&&Xc<col&&Yc+1<fil){     //no hay colision con los bordes
+            if ( table[Xc][Yc-1] == 1 || table[Xc][Yc+1] == 1) {
+                return true;  // ¡CHOCÓ! (con el centro o con cualquiera de los lados)
+            }else{return false;}
+        }
+        return true;                                //si hay colision con los bordes
+    default:
+        break;
+
+    }
+
+    return true;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
